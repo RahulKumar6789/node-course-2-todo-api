@@ -3,16 +3,15 @@ require('./config/config');
 const _ = require('lodash');
 const express = require('express');
 const bodyParser = require('body-parser');
+const {ObjectID} = require('mongodb');
 
 var {mongoose} = require('./db/mongoose');
 var {Todo} = require('./models/todo');
 var {User} = require('./models/user');
-
-const port = process.env.PORT || 3000;
-
-const {ObjectID} = require('mongodb');
+var {authenticate} = require('./middleware/authenticate');
 
 var app = express();
+const port = process.env.PORT;
 
 app.use(bodyParser.json());
 
@@ -39,7 +38,7 @@ app.get('/todos', (req, res) => {
 app.get('/todos/:id', (req, res) => {
   var id = req.params.id;
 
-  if(!ObjectID.isValid(id)) {
+  if (!ObjectID.isValid(id)) {
     return res.status(404).send();
   }
 
@@ -55,18 +54,18 @@ app.get('/todos/:id', (req, res) => {
 });
 
 app.delete('/todos/:id', (req, res) => {
-  var id = req.params.id; //get the id
+  var id = req.params.id;
 
-  if (!ObjectID.isValid(id)) {     //validate the id if not then return 404
+  if (!ObjectID.isValid(id)) {
     return res.status(404).send();
   }
 
-  Todo.findByIdAndRemove(id).then((todo) => {    //remove todo by id
+  Todo.findByIdAndRemove(id).then((todo) => {
     if (!todo) {
       return res.status(404).send();
     }
 
-    res.send({todo}); //success
+    res.send({todo});
   }).catch((e) => {
     res.status(400).send();
   });
@@ -113,9 +112,22 @@ app.post('/users', (req, res) => {
 });
 
 
+
+app.get('/users/me', authenticate, (req, res) => {
+  var token = req.header('x-auth');
+
+  User.findByToken(token).then((user) => {
+    if(!user) {
+      returnPromise.reject();
+    }
+    res.send(user);
+  }).catch((e) => {
+    res.status(401).send();
+  });
+});
+
 app.listen(port, () => {
   console.log(`Started up at port ${port}`);
 });
-
 
 module.exports = {app};
